@@ -1,0 +1,40 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    match /quizzes/{quizId} {
+      allow read: if signedIn();
+      allow create: if signedIn() && request.resource.data.createdBy == request.auth.uid;
+      allow update, delete: if signedIn() && resource.data.createdBy == request.auth.uid;
+    }
+
+    match /quizAnswerKeys/{quizId} {
+      allow read: if false;
+      allow create: if signedIn() && request.resource.data.createdBy == request.auth.uid;
+      allow update, delete: if signedIn() && resource.data.createdBy == request.auth.uid;
+    }
+
+    match /settings/{settingId} {
+      allow read: if signedIn();
+      allow write: if signedIn()
+        && settingId == 'current'
+        && request.resource.data.activeBy == request.auth.uid
+        && request.resource.data.keys().hasOnly(['activeQuizId', 'activeQuizTitle', 'activeBy', 'updatedAt'])
+        && existsAfter(/databases/$(database)/documents/quizzes/$(request.resource.data.activeQuizId));
+    }
+
+    match /quizResponses/{responseId} {
+      allow read: if signedIn();
+      allow create, update: if signedIn()
+        && request.resource.data.participantId == request.auth.uid
+        && request.resource.data.keys().hasOnly([
+          'quizId', 'participantId', 'questionId', 'questionText',
+          'selectedOption', 'optionLabel', 'submittedAt'
+        ]);
+      allow delete: if false;
+    }
+  }
+}

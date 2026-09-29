@@ -1,27 +1,52 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import FileUploadField from '../components/FileUploadField'
 import QuizInput from '../components/QuizInput'
-
-const availableQuizzes = ['Health Quiz', 'Exercise Quiz']
+import { firebaseConfigured } from '../lib/firebase'
+import { activateQuiz, createQuiz, ensureParticipantSession, subscribeToQuizzes } from '../lib/quizData'
+import { parseQuizFile } from '../lib/quizImport'
+import type { Quiz } from '../lib/quizTypes'
 
 function AdminPage() {
   const [activeTab, setActiveTab] = useState<'create' | 'publish'>('create')
   const [quizName, setQuizName] = useState('')
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
-  const [selectedQuiz, setSelectedQuiz] = useState(availableQuizzes[0])
+  const [selectedQuizId, setSelectedQuizId] = useState('')
+  const [quizzes, setQuizzes] = useState<Quiz[]>([])
+  const [ownerId, setOwnerId] = useState('')
+  const [isSubmitting, setIsSubmitting] = useState(false)
   const [errorMessage, setErrorMessage] = useState('')
   const [successMessage, setSuccessMessage] = useState('')
 
-  const createQuizMessage = useMemo(
-    () => `Quiz “${quizName.trim() || 'new quiz'}” was created successfully.`,
-    [quizName],
-  )
+  useEffect(() => {
+    if (!firebaseConfigured) return
 
-  const handleCreateSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+    let isMounted = true
+    let unsubscribe: (() => void) | undefined
+
+    ensureParticipantSession()
+      .then((uid) => {
+        if (!isMounted) return
+        setOwnerId(uid)
+        unsubscribe = subscribeToQuizzes((availableQuizzes) => {
+          setQuizzes(availableQuizzes)
+          setSelectedQuizId((current) => current || availableQuizzes[0]?.id || '')
+        }, (error) => setErrorMessage(error.message))
+      })
+      .catch((error: unknown) => {
+        setErrorMessage(error instanceof Error ? error.message : 'Could not connect to Firebase.')
+      })
+
+    return () => {
+      isMounted = false
+      unsubscribe?.()
+    }
+  }, [])
+
+  const handleCreateSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
 
     const trimmedQuizName = quizName.trim()
-    const allowedExtensions = ['.xlsx', '.xls', '.csv']
+    const allowedExtensions = ['.xlsx', '.csv']
     const fileExtension = selectedFile
       ? selectedFile.name.slice(selectedFile.name.lastIndexOf('.')).toLowerCase()
       : ''
@@ -39,7 +64,7 @@ function AdminPage() {
     }
 
     if (!allowedExtensions.includes(fileExtension)) {
-      setErrorMessage('Unsupported file type. Please upload an .xlsx, .xls, or .csv file.')
+      setErrorMessage('Unsupported file type. Please upload an .xlsx or .csv file.')
       setSuccessMessage('')
       return
     }
@@ -50,14 +75,34 @@ function AdminPage() {
       return
     }
 
+    setIsSubmitting(true)
     setErrorMessage('')
-    setSuccessMessage(createQuizMessage)
-    setQuizName('')
-    setSelectedFile(null)
+    setSuccessMessage('')
+
+    try {
+      const importedQuiz = await parseQuizFile(selectedFile)
+
+      if (firebaseConfigured) {
+        if (!ownerId) throw new Error('The Firebase session is not ready. Reload and try again.')
+        await createQuiz(trimmedQuizName, importedQuiz, ownerId)
+        setSuccessMessage(`Quiz “${trimmedQuizName}” was saved and is now active for participants.`)
+      } else {
+        setSuccessMessage(`Quiz “${trimmedQuizName}” passed validation. Configure Firebase to save it.`)
+      }
+
+      setQuizName('')
+      setSelectedFile(null)
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : 'Could not import this quiz file.')
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
-  const handlePublishSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+  const handlePublishSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
+
+    const selectedQuiz = quizzes.find((quiz) => quiz.id === selectedQuizId)
 
     if (!selectedQuiz) {
       setErrorMessage('Please choose a quiz to display to participants.')
@@ -66,7 +111,33 @@ function AdminPage() {
     }
 
     setErrorMessage('')
-    setSuccessMessage(`Quiz “${selectedQuiz}” is now selected for participants.`)
+    setIsSubmitting(true)
+
+    try {
+      if (!ownerId) throw new Error('The Firebase session is not ready. Reload and try again.')
+      await activateQuiz(selectedQuiz.id, selectedQuiz.title, ownerId)
+      setSuccessMessage(`Quiz “${selectedQuiz.title}” is now active for participants.`)
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : 'Could not activate this quiz.')
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  if (!firebaseConfigured) {
+    return (
+      <main className="admin-page">
+        <section className="admin-panel">
+          <div className="admin-panel__header">
+            <p className="admin-panel__eyebrow">Admin dashboard</p>
+            <h1>Firebase configuration required</h1>
+          </div>
+          <div className="form-alert form-alert--error" role="alert">
+            Add all Firebase web app values to .env.local, then restart the development server.
+          </div>
+        </section>
+      </main>
+    )
   }
 
   return (
@@ -94,7 +165,7 @@ function AdminPage() {
             className={activeTab === 'publish' ? 'admin-tab admin-tab--active' : 'admin-tab'}
             onClick={() => setActiveTab('publish')}
           >
-            Select quiz
+            Select active quiz
           </button>
         </div>
 
@@ -121,36 +192,44 @@ function AdminPage() {
               required
             />
 
+            <a
+              href={`${import.meta.env.BASE_URL}quiz-template.xlsx`}
+              download="quiz-template.xlsx"
+              className="admin-form__template"
+            >
+              Download Excel template
+            </a>
+
             <FileUploadField
               label="Excel file"
-              accept=".xlsx,.xls,.csv"
+              accept=".xlsx,.csv"
               selectedFileName={selectedFile?.name}
               onChange={setSelectedFile}
-              helperText="Accepted: .xlsx, .xls, .csv (max 5MB)"
+              helperText="Accepted: .xlsx, .csv (max 5MB)"
             />
 
-            <button type="submit" className="admin-form__submit">
-              Save quiz
+            <button type="submit" className="admin-form__submit" disabled={isSubmitting}>
+              {isSubmitting ? 'Saving…' : 'Save quiz'}
             </button>
           </form>
         ) : (
-          <form className="admin-form" onSubmit={handlePublishSubmit}>
+            <form className="admin-form" onSubmit={handlePublishSubmit}>
             <label className="quiz-input">
               <span className="quiz-input__label">Select quiz</span>
               <select
-                value={selectedQuiz}
-                onChange={(event) => setSelectedQuiz(event.target.value)}
+                value={selectedQuizId}
+                onChange={(event) => setSelectedQuizId(event.target.value)}
               >
-                {availableQuizzes.map((quiz) => (
-                  <option key={quiz} value={quiz}>
-                    {quiz}
+                {quizzes.map((quiz) => (
+                  <option key={quiz.id} value={quiz.id}>
+                    {quiz.title}
                   </option>
                 ))}
               </select>
             </label>
 
-            <button type="submit" className="admin-form__submit">
-              Show to participant
+            <button type="submit" className="admin-form__submit" disabled={isSubmitting || quizzes.length === 0}>
+              {isSubmitting ? 'Activating…' : 'Make active quiz'}
             </button>
           </form>
         )}

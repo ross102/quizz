@@ -1,13 +1,10 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { firebaseConfigured } from '../lib/firebase'
+import { ensureParticipantSession, submitQuizAnswer, subscribeToActiveQuiz } from '../lib/quizData'
+import type { Quiz, QuizQuestion } from '../lib/quizTypes'
 
-type Question = {
-  id: number
-  prompt: string
-  options: string[]
-}
-
-const questions: Question[] = [
+const demoQuestions: QuizQuestion[] = [
   {
     id: 1,
     prompt: 'Which food is traditionally known as a staple grain in many Asian cuisines?',
@@ -53,28 +50,31 @@ const questions: Question[] = [
 const pageSize = 1
 const QUIZ_STORAGE_KEY = 'participant-quiz-progress'
 const QUIZ_RESULT_KEY = 'participant-quiz-result'
+const DEMO_QUIZ_ID = 'demo-healthy-food-choices'
 
 function loadSavedProgress() {
   try {
     const savedProgress = localStorage.getItem(QUIZ_STORAGE_KEY)
 
     if (!savedProgress) {
-      return { currentPage: 0, selectedAnswers: {} as Record<number, number> }
+      return { quizId: undefined, currentPage: 0, selectedAnswers: {} as Record<number, number> }
     }
 
     return JSON.parse(savedProgress) as {
+      quizId?: string
       currentPage: number
       selectedAnswers: Record<number, number>
     }
   } catch {
-    return { currentPage: 0, selectedAnswers: {} as Record<number, number> }
+    return { quizId: undefined, currentPage: 0, selectedAnswers: {} as Record<number, number> }
   }
 }
 
-function saveProgress(currentPage: number, selectedAnswers: Record<number, number>) {
+function saveProgress(quizId: string, currentPage: number, selectedAnswers: Record<number, number>) {
   localStorage.setItem(
     QUIZ_STORAGE_KEY,
     JSON.stringify({
+      quizId,
       currentPage,
       selectedAnswers,
     }),
@@ -88,35 +88,102 @@ function ParticipantQuizPage() {
   const [selectedAnswers, setSelectedAnswers] = useState<Record<number, number>>(
     savedProgress.selectedAnswers,
   )
+  const [activeQuiz, setActiveQuiz] = useState<Quiz | null>(null)
+  const [participantId, setParticipantId] = useState('')
+  const [isLoading, setIsLoading] = useState(firebaseConfigured)
+  const [isProgressReady, setIsProgressReady] = useState(!firebaseConfigured)
+  const [isSubmittingAnswer, setIsSubmittingAnswer] = useState(false)
+  const [errorMessage, setErrorMessage] = useState('')
 
+  useEffect(() => {
+    if (!firebaseConfigured) {
+      setIsProgressReady(true)
+      setIsLoading(false)
+      return
+    }
+
+    let unsubscribe: (() => void) | undefined
+    let isMounted = true
+
+    ensureParticipantSession()
+      .then((uid) => {
+        if (!isMounted) return
+        setParticipantId(uid)
+        unsubscribe = subscribeToActiveQuiz((quiz) => {
+          setActiveQuiz(quiz)
+
+          if (quiz?.id !== savedProgress.quizId) {
+            setCurrentPage(0)
+            setSelectedAnswers({})
+          }
+
+          setIsProgressReady(true)
+        }, (error) => setErrorMessage(error.message))
+      })
+      .catch((error: unknown) => {
+        setErrorMessage(error instanceof Error ? error.message : 'Could not connect to Firebase.')
+      })
+      .finally(() => setIsLoading(false))
+
+    return () => {
+      isMounted = false
+      unsubscribe?.()
+    }
+  }, [])
+
+  const questions = activeQuiz?.questions ?? (firebaseConfigured ? [] : demoQuestions)
   const totalPages = Math.ceil(questions.length / pageSize)
 
   useEffect(() => {
-    saveProgress(currentPage, selectedAnswers)
-  }, [currentPage, selectedAnswers])
+    if (!isProgressReady || (firebaseConfigured && !activeQuiz)) return
 
-  const currentQuestion = useMemo(() => {
-    return questions[currentPage]
-  }, [currentPage])
+    saveProgress(activeQuiz?.id ?? DEMO_QUIZ_ID, currentPage, selectedAnswers)
+  }, [activeQuiz, currentPage, isProgressReady, selectedAnswers])
+
+  const currentQuestion = questions[currentPage]
 
   const answeredCount = Object.keys(selectedAnswers).length
 
   const handleSelectOption = (questionId: number, optionIndex: number) => {
-    setSelectedAnswers((previous) => ({
-      ...previous,
+    const nextAnswers = {
+      ...selectedAnswers,
       [questionId]: optionIndex,
-    }))
+    }
+    setSelectedAnswers(nextAnswers)
+    saveProgress(activeQuiz?.id ?? DEMO_QUIZ_ID, currentPage, nextAnswers)
   }
 
   const handlePrev = () => {
-    setCurrentPage((previous) => Math.max(previous - 1, 0))
+    const previousPage = Math.max(currentPage - 1, 0)
+    setCurrentPage(previousPage)
+    saveProgress(activeQuiz?.id ?? DEMO_QUIZ_ID, previousPage, selectedAnswers)
   }
 
-  const handleNext = () => {
+  const handleNext = async () => {
+    const selectedOptionIndex = selectedAnswers[currentQuestion.id]
+
+    if (activeQuiz && participantId && selectedOptionIndex !== undefined) {
+      setIsSubmittingAnswer(true)
+      setErrorMessage('')
+
+      try {
+        await submitQuizAnswer(activeQuiz, participantId, currentQuestion.id, selectedOptionIndex)
+      } catch (error) {
+        setErrorMessage(error instanceof Error ? error.message : 'Could not save your answer.')
+        setIsSubmittingAnswer(false)
+        return
+      }
+
+      setIsSubmittingAnswer(false)
+    }
+
     if (currentPage === totalPages - 1) {
       const resultSnapshot = {
         answers: selectedAnswers,
         totalQuestions: questions.length,
+        quizId: activeQuiz?.id,
+        quizTitle: activeQuiz?.title ?? 'Healthy Food Choices',
+        questions,
       }
 
       localStorage.setItem(QUIZ_RESULT_KEY, JSON.stringify(resultSnapshot))
@@ -128,10 +195,33 @@ function ParticipantQuizPage() {
       return
     }
 
-    setCurrentPage((previous) => Math.min(previous + 1, totalPages - 1))
+    const nextPage = Math.min(currentPage + 1, totalPages - 1)
+    setCurrentPage(nextPage)
+    saveProgress(activeQuiz?.id ?? DEMO_QUIZ_ID, nextPage, selectedAnswers)
   }
 
   const isLastPage = currentPage === totalPages - 1
+
+  if (isLoading) {
+    return <main className="participant-page"><section className="participant-shell"><p>Connecting to the quiz…</p></section></main>
+  }
+
+  if (!currentQuestion) {
+    return (
+      <main className="participant-page">
+        <section className="participant-shell">
+          <header className="participant-header">
+            <div>
+              <p className="participant-header__eyebrow">Participant quiz</p>
+              <h1>{firebaseConfigured ? 'No active quiz' : 'Quiz unavailable'}</h1>
+            </div>
+          </header>
+          {errorMessage ? <div className="form-alert form-alert--error" role="alert">{errorMessage}</div> : null}
+          <p>{firebaseConfigured ? 'The quiz host has not published a quiz yet.' : 'No quiz questions are available.'}</p>
+        </section>
+      </main>
+    )
+  }
 
   return (
     <main className="participant-page">
@@ -139,12 +229,14 @@ function ParticipantQuizPage() {
         <header className="participant-header">
           <div>
             <p className="participant-header__eyebrow">Participant quiz</p>
-            <h1>Healthy Food Choices</h1>
+            <h1>{activeQuiz?.title ?? 'Healthy Food Choices'}</h1>
           </div>
           <div className="participant-progress">
             <span>{answeredCount} answered</span>
           </div>
         </header>
+
+        {errorMessage ? <div className="form-alert form-alert--error" role="alert">{errorMessage}</div> : null}
 
         <div className="participant-progress-bar" aria-hidden="true">
           <span style={{ width: `${(answeredCount / questions.length) * 100}%` }} />
@@ -199,8 +291,9 @@ function ParticipantQuizPage() {
             type="button"
             className="participant-pagination__button participant-pagination__button--primary"
             onClick={handleNext}
+            disabled={isSubmittingAnswer}
           >
-            {isLastPage ? 'Finish' : 'Next'}
+            {isSubmittingAnswer ? 'Saving…' : isLastPage ? 'Finish' : 'Next'}
           </button>
         </div>
       </section>

@@ -9,8 +9,8 @@ type FileUploadFieldProps = {
 function FileUploadField({
   label,
   onChange,
-  accept = '.xlsx,.xls,.csv',
-  helperText = 'Supported formats: .xlsx, .xls, .csv',
+  accept = '.xlsx,.csv',
+  helperText = 'Supported formats: .xlsx, .csv',
   selectedFileName,
 }: FileUploadFieldProps) {
   return (
@@ -25,10 +25,15 @@ function FileUploadField({
             onChange(file)
           }}
         />
-        <span className="file-upload__button">Choose file</span>
+        <span className={`file-upload__button ${selectedFileName ? 'file-upload__button--selected' : ''}`}>
+          {selectedFileName ? 'Change file' : 'Choose file'}
+        </span>
       </div>
-      <span className="file-upload__meta">
-        {selectedFileName ? selectedFileName : helperText}
+      <span
+        className={`file-upload__meta ${selectedFileName ? 'file-upload__meta--selected' : ''}`}
+        aria-live="polite"
+      >
+        {selectedFileName ? `Selected: ${selectedFileName}` : helperText}
       </span>
     </label>
   )

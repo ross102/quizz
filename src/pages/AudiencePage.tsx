@@ -1,4 +1,7 @@
 import { useEffect, useState } from 'react'
+import { firebaseConfigured } from '../lib/firebase'
+import { ensureParticipantSession, subscribeToActiveQuiz, subscribeToQuizResponses } from '../lib/quizData'
+import type { QuizResponse } from '../lib/quizTypes'
 
 type AudienceAnswer = {
   id: string
@@ -21,7 +24,7 @@ const mockedAudienceAnswers: AudienceAnswer[] = [
     align: 'left',
   },
   {
-    id: '2',
+    id: 'demo-2',
     questionId: 1,
     questionText: 'Which language is primarily used for styling web pages?',
     selectedOption: 'CSS',
@@ -30,7 +33,7 @@ const mockedAudienceAnswers: AudienceAnswer[] = [
     align: 'left',
   },
   {
-    id: '2',
+    id: 'demo-3',
     questionId: 3,
     questionText: 'What does JSX allow you to write in React?',
     selectedOption: 'HTML-like syntax in JavaScript',
@@ -39,7 +42,7 @@ const mockedAudienceAnswers: AudienceAnswer[] = [
     align: 'right',
   },
   {
-    id: '3',
+    id: 'demo-4',
     questionId: 4,
     questionText: 'Which data structure keeps items in key-value pairs?',
     selectedOption: 'Object',
@@ -136,8 +139,43 @@ const SHOW_USER_RESULTS = false
 function AudiencePage() {
   const [liveAnswers, setLiveAnswers] = useState<AudienceAnswer[]>([])
   const [isUsingSocket, setIsUsingSocket] = useState(false)
+  const [questionCount, setQuestionCount] = useState(mockedAudienceAnswers.length)
+  const [connectionError, setConnectionError] = useState('')
 
   useEffect(() => {
+    if (firebaseConfigured) {
+      let unsubscribeQuiz: (() => void) | undefined
+      let unsubscribeResponses: (() => void) | undefined
+
+      ensureParticipantSession()
+        .then(() => {
+          unsubscribeQuiz = subscribeToActiveQuiz((quiz) => {
+            unsubscribeResponses?.()
+            setLiveAnswers([])
+
+            if (!quiz) {
+              setQuestionCount(0)
+              setIsUsingSocket(false)
+              return
+            }
+
+            setQuestionCount(quiz.questions.length)
+            unsubscribeResponses = subscribeToQuizResponses(quiz.id, (responses) => {
+              setLiveAnswers(responses.map(toAudienceAnswer))
+              setIsUsingSocket(true)
+            }, (error) => setConnectionError(error.message))
+          }, (error) => setConnectionError(error.message))
+        })
+        .catch((error: unknown) => {
+          setConnectionError(error instanceof Error ? error.message : 'Could not connect to Firebase.')
+        })
+
+      return () => {
+        unsubscribeQuiz?.()
+        unsubscribeResponses?.()
+      }
+    }
+
     const socket = new WebSocket(websocketUrl)
 
     const handleMessage = (event: MessageEvent) => {
@@ -183,10 +221,10 @@ function AudiencePage() {
     return () => {
       socket.close()
     }
-  }, [liveAnswers.length])
+  }, [])
 
   useEffect(() => {
-    if (!isUsingSocket) {
+    if (!firebaseConfigured && !isUsingSocket) {
       const timer = window.setTimeout(() => {
         setLiveAnswers(mockedAudienceAnswers)
       }, 500)
@@ -212,14 +250,16 @@ function AudiencePage() {
             <h1>Live Quiz Responses</h1>
           </div>
           <div className="audience-pill">
-            {isUsingSocket ? 'Live socket' : 'Demo feed'} • {liveAnswers.length} responses
+            {firebaseConfigured ? (isUsingSocket ? 'Live Firebase' : 'Firebase feed') : isUsingSocket ? 'Live socket' : 'Demo feed'} • {liveAnswers.length} responses
           </div>
         </header>
+
+        {connectionError ? <div className="form-alert form-alert--error" role="alert">{connectionError}</div> : null}
 
         <div className="audience-summary">
           <div>
             <span>Questions</span>
-            <strong>{mockedAudienceAnswers.length}</strong>
+            <strong>{questionCount}</strong>
           </div>
           <div>
             <span>Active feed</span>
@@ -269,3 +309,13 @@ function AudiencePage() {
 }
 
 export default AudiencePage
+
+const answerAccents: AudienceAnswer['accent'][] = ['blue', 'violet', 'green', 'amber', 'rose', 'cyan']
+
+function toAudienceAnswer(response: QuizResponse, index: number): AudienceAnswer {
+  return {
+    ...response,
+    accent: answerAccents[index % answerAccents.length],
+    align: index % 2 === 0 ? 'left' : 'right',
+  }
+}

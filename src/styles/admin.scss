@@ -170,6 +170,18 @@ $success-bg: #f0fdf4;
 .file-upload__meta {
   color: $text-soft;
   font-size: 0.82rem;
+  overflow-wrap: anywhere;
+}
+
+.file-upload__meta--selected {
+  color: $primary-dark;
+  font-weight: 700;
+}
+
+.file-upload__button--selected {
+  border-style: solid;
+  background: #e6f5ec;
+  color: #17633a;
 }
 
 .admin-form__submit {
@@ -186,6 +198,24 @@ $success-bg: #f0fdf4;
   &:hover {
     transform: translateY(-1px);
     box-shadow: 0 18px 30px rgba(79, 70, 229, 0.18);
+  }
+}
+
+.admin-form__template {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid $border;
+  border-radius: 8px;
+  background: #fff;
+  color: $primary-dark;
+  font-weight: 700;
+  padding: 0.65rem 0.85rem;
+  cursor: pointer;
+  text-decoration: none;
+
+  &:hover {
+    background: $panel-alt;
   }
 }
 

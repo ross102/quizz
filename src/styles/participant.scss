@@ -1,0 +1,329 @@
+$bg: #f5f7ff;
+$panel: #ffffff;
+$panel-alt: #edf3ff;
+$primary: #4f46e5;
+$primary-dark: #3730a3;
+$text: #1e293b;
+$text-soft: #64748b;
+$border: rgba(79, 70, 229, 0.12);
+$shadow: 0 24px 64px rgba(79, 70, 229, 0.12);
+
+.participant-page {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  background: linear-gradient(135deg, #f5f7ff 0%, #edf4ff 100%);
+  padding: 18px;
+}
+
+.participant-shell {
+  width: min(100%, 760px);
+  background: $panel;
+  border: 1px solid $border;
+  border-radius: 20px;
+  box-shadow: $shadow;
+  padding: 20px 18px 16px;
+}
+
+.participant-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.participant-header__eyebrow {
+  margin: 0 0 6px;
+  font-size: 0.66rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: $primary;
+  font-weight: 700;
+}
+
+.participant-header h1 {
+  margin: 0;
+  color: $text;
+  font-size: clamp(1.5rem, 2vw, 2rem);
+  line-height: 1.1;
+}
+
+.participant-progress {
+  background: $panel-alt;
+  border: 1px solid $border;
+  border-radius: 999px;
+  padding: 0.5rem 0.85rem;
+  color: $primary-dark;
+  font-weight: 700;
+  white-space: nowrap;
+  font-size: 0.8rem;
+}
+
+.participant-progress-bar {
+  position: relative;
+  width: 100%;
+  height: 8px;
+  border-radius: 999px;
+  background: #edf2ff;
+  overflow: hidden;
+  margin-bottom: 18px;
+
+  span {
+    position: absolute;
+    inset: 0 auto 0 0;
+    display: block;
+    max-width: 100%;
+    background: linear-gradient(90deg, $primary 0%, $primary-dark 100%);
+    border-radius: inherit;
+  }
+}
+
+.participant-questions {
+  display: grid;
+  gap: 16px;
+}
+
+.question-card {
+  background: $panel-alt;
+  border: 1px solid $border;
+  border-radius: 16px;
+  padding: 16px 16px 14px;
+}
+
+.question-card__label {
+  margin: 0 0 6px;
+  color: $text-soft;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-weight: 700;
+  font-size: 0.7rem;
+}
+
+.question-card h2 {
+  margin: 0 0 14px;
+  color: $text;
+  font-size: clamp(1.05rem, 1.7vw, 1.4rem);
+  line-height: 1.35;
+}
+
+.question-options {
+  display: grid;
+  gap: 10px;
+}
+
+.option-button {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  text-align: left;
+  background: #fff;
+  border: 1px solid $border;
+  border-radius: 10px;
+  color: $text;
+  padding: 0.7rem 0.8rem;
+  font-size: 0.94rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+
+  input {
+    accent-color: $primary;
+    width: 0.95rem;
+    height: 0.95rem;
+    margin: 0;
+    flex-shrink: 0;
+  }
+
+  &:hover {
+    border-color: rgba(79, 70, 229, 0.4);
+    transform: translateY(-1px);
+  }
+}
+
+.option-button--selected {
+  border-color: rgba(79, 70, 229, 0.6);
+  background: rgba(79, 70, 229, 0.04);
+  box-shadow: 0 10px 22px rgba(79, 70, 229, 0.06);
+}
+
+.option-button__letter {
+  width: 1.8rem;
+  height: 1.8rem;
+  border-radius: 50%;
+  display: inline-grid;
+  place-items: center;
+  background: rgba(79, 70, 229, 0.12);
+  color: $primary-dark;
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.participant-pagination {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 18px;
+}
+
+.participant-pagination__button {
+  border: none;
+  border-radius: 10px;
+  padding: 0.8rem 1rem;
+  cursor: pointer;
+  font-weight: 700;
+  font-size: 0.92rem;
+  transition: transform 0.2s ease, opacity 0.2s ease;
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  &:not(:disabled):hover {
+    transform: translateY(-1px);
+  }
+}
+
+.participant-pagination__button--secondary {
+  background: #eef2ff;
+  color: $primary-dark;
+}
+
+.participant-pagination__button--primary {
+  background: linear-gradient(135deg, $primary 0%, $primary-dark 100%);
+  color: #fff;
+}
+
+.result-shell {
+  width: min(100%, 620px);
+  background: $panel;
+  border: 1px solid $border;
+  border-radius: 24px;
+  box-shadow: $shadow;
+  padding: 28px;
+}
+
+.result-header {
+  margin-bottom: 22px;
+}
+
+.result-header__eyebrow {
+  margin: 0 0 8px;
+  color: $primary;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.result-header h1 {
+  margin: 0;
+  color: $text;
+  font-size: clamp(2rem, 3vw, 2.7rem);
+}
+
+.result-score {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  margin-bottom: 18px;
+
+  > div {
+    background: $panel-alt;
+    border: 1px solid $border;
+    border-radius: 14px;
+    padding: 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+}
+
+.result-score__label {
+  color: $text-soft;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.result-score strong {
+  font-size: 1.8rem;
+  color: $text;
+}
+
+.result-card,
+.recommendation-card {
+  background: $panel-alt;
+  border: 1px solid $border;
+  border-radius: 16px;
+  padding: 18px;
+  margin-bottom: 16px;
+}
+
+.result-card h2,
+.recommendation-card h3 {
+  margin: 0 0 10px;
+  color: $text;
+}
+
+.result-card p,
+.recommendation-card p {
+  margin: 0;
+  color: $text-soft;
+  line-height: 1.6;
+}
+
+.result-button {
+  width: 100%;
+  border: none;
+  border-radius: 12px;
+  background: linear-gradient(135deg, $primary 0%, $primary-dark 100%);
+  color: #fff;
+  font-weight: 700;
+  padding: 0.95rem 1rem;
+  cursor: pointer;
+}
+
+@media (max-width: 700px) {
+  .participant-page {
+    padding: 12px;
+  }
+
+  .participant-shell {
+    padding: 18px 14px 14px;
+    border-radius: 18px;
+  }
+
+  .participant-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .participant-progress {
+    white-space: normal;
+  }
+
+  .participant-pagination {
+    flex-direction: column-reverse;
+  }
+
+  .participant-pagination__button {
+    width: 100%;
+  }
+
+  .result-shell {
+    padding: 20px 16px;
+  }
+}
+
+@media (max-width: 640px) {
+  .result-score {
+    grid-template-columns: 1fr;
+  }
+
+  .option-button {
+    padding: 0.75rem 0.7rem;
+  }
+}

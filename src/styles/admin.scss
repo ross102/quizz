@@ -1,0 +1,213 @@
+$bg: #f4f7ff;
+$panel: #ffffff;
+$panel-alt: #edf2ff;
+$primary: #4f46e5;
+$primary-dark: #3730a3;
+$text: #1f2937;
+$text-soft: #64748b;
+$border: rgba(79, 70, 229, 0.12);
+$shadow: 0 24px 60px rgba(79, 70, 229, 0.12);
+$error: #dc2626;
+$error-bg: #fef2f2;
+$success: #15803d;
+$success-bg: #f0fdf4;
+
+.admin-page {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  background: linear-gradient(135deg, $bg 0%, #eef4ff 100%);
+  padding: 24px;
+}
+
+.admin-panel {
+  width: min(100%, 560px);
+  background: $panel;
+  border: 1px solid $border;
+  border-radius: 24px;
+  box-shadow: $shadow;
+  padding: 32px 28px;
+}
+
+.admin-panel__header {
+  margin-bottom: 24px;
+}
+
+.admin-panel__eyebrow {
+  margin: 0 0 10px;
+  color: $primary;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.admin-panel h1 {
+  margin: 0;
+  color: $text;
+  font-size: clamp(2rem, 4vw, 2.6rem);
+  line-height: 1.15;
+}
+
+.admin-tabs {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 22px;
+  background: $panel-alt;
+  border: 1px solid $border;
+  border-radius: 12px;
+  padding: 6px;
+}
+
+.admin-tab {
+  flex: 1;
+  border: none;
+  border-radius: 10px;
+  background: transparent;
+  color: $text-soft;
+  font-weight: 700;
+  padding: 0.75rem 0.8rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.admin-tab--active {
+  background: #fff;
+  color: $primary-dark;
+  box-shadow: 0 8px 18px rgba(79, 70, 229, 0.09);
+}
+
+.form-alert {
+  margin-bottom: 18px;
+  border-radius: 12px;
+  padding: 0.85rem 1rem;
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.form-alert--error {
+  background: $error-bg;
+  color: $error;
+  border: 1px solid rgba($error, 0.2);
+}
+
+.form-alert--success {
+  background: $success-bg;
+  color: $success;
+  border: 1px solid rgba($success, 0.2);
+}
+
+.admin-form {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
+
+.quiz-input,
+.file-upload {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.quiz-input__label,
+.file-upload__label {
+  color: $text;
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+
+.quiz-input input,
+.quiz-input select {
+  width: 100%;
+  border: 1px solid $border;
+  border-radius: 12px;
+  background: #fff;
+  padding: 0.9rem 1rem;
+  font-size: 1rem;
+  color: $text;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+
+  &:focus {
+    outline: none;
+    border-color: rgba(79, 70, 229, 0.6);
+    box-shadow: 0 0 0 4px rgba(79, 70, 229, 0.08);
+  }
+}
+
+.file-upload__field {
+  position: relative;
+}
+
+.file-upload input[type='file'] {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.file-upload__button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  padding: 0.9rem 1rem;
+  border: 1px dashed rgba(79, 70, 229, 0.4);
+  border-radius: 12px;
+  background: $panel-alt;
+  color: $primary-dark;
+  font-weight: 600;
+  transition: background 0.2s ease;
+}
+
+.file-upload input[type='file']:hover + .file-upload__button,
+.file-upload input[type='file']:focus + .file-upload__button {
+  background: rgba(79, 70, 229, 0.06);
+}
+
+.file-upload__meta {
+  color: $text-soft;
+  font-size: 0.82rem;
+}
+
+.admin-form__submit {
+  margin-top: 8px;
+  border: none;
+  border-radius: 12px;
+  background: linear-gradient(135deg, $primary 0%, $primary-dark 100%);
+  color: #fff;
+  font-weight: 700;
+  padding: 0.95rem 1rem;
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+
+  &:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 18px 30px rgba(79, 70, 229, 0.18);
+  }
+}
+
+@media (max-width: 640px) {
+  .admin-page {
+    padding: 16px;
+  }
+
+  .admin-panel {
+    padding: 22px 16px;
+    border-radius: 18px;
+  }
+
+  .admin-tabs {
+    flex-direction: column;
+  }
+
+  .admin-tab {
+    width: 100%;
+  }
+
+  .admin-form {
+    gap: 16px;
+  }
+}

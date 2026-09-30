@@ -111,7 +111,7 @@ function AdminPage() {
       if (firebaseConfigured) {
         if (!ownerId) throw new Error('The Firebase session is not ready. Reload and try again.')
         await createQuiz(trimmedQuizName, importedQuiz, ownerId)
-        setSuccessMessage(`Quiz “${trimmedQuizName}” was saved and is now active for participants.`)
+        setSuccessMessage(`Quiz “${trimmedQuizName}” was saved. Select it in the second tab to make it active.`)
       } else {
         setSuccessMessage(`Quiz “${trimmedQuizName}” passed validation. Configure Firebase to save it.`)
       }

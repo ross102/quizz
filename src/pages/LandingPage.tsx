@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom'
 import { QRCodeSVG } from 'qrcode.react'
 
-const evaluationUrl = 'https://eval.fsdhmb.com'
+const evaluationUrl = 'https://eval.fsdhmb.com/quiz'
 
 function LandingPage() {
   return (
@@ -40,13 +40,10 @@ function LandingPage() {
               marginSize={2}
               bgColor="#ffffff"
               fgColor="#172b4d"
-              title="QR code for eval.fsdhmb.com"
+              title="QR code for eval.fsdhmb.com/quiz"
             />
           </a>
           <p className="landing-qr__label">Scan to open</p>
-          <a className="landing-qr__url" href={evaluationUrl} target="_blank" rel="noreferrer">
-            eval.fsdhmb.com
-          </a>
         </div>
       </section>
 

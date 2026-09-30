@@ -21,7 +21,7 @@ npm run dev
 
 ## Quiz spreadsheet
 
-Download `quiz-template.xlsx` from the Create quiz tab. Add one question per row with these columns: `#`, `Question`, `Choice 1` through `Choice 5`, `Points: Choice 1` through `Points: Choice 4`, `Max score`, `Animal type`, `Image links`, `Minimum`, `Maximum`, `Description`, and `Recommendation`. The question and Choices 1 through 4 are required; Choice 5, points, and profile metadata are optional. `Image links` accepts an HTTP(S) URL and is shown on the matched result. A quiz can contain up to 30 questions. The numbered column is informational. Uploading a valid spreadsheet saves the quiz and makes it active immediately. `.xlsx` and `.csv` uploads are supported.
+Download `quiz-template.xlsx` from the Create quiz tab. Add one question per row with these columns: `#`, `Question`, `Choice 1` through `Choice 5`, `Points: Choice 1` through `Points: Choice 4`, `Max score`, `Animal type`, `Image links`, `Minimum`, `Maximum`, `Description`, and `Recommendation`. The question and Choices 1 through 4 are required; Choice 5, points, and profile metadata are optional. `Image links` accepts an HTTP(S) URL and is shown on the matched result. A quiz can contain up to 30 questions. The numbered column is informational. Uploading a valid spreadsheet saves it without activating it; select the quiz in the second admin tab to make it active. `.xlsx` and `.csv` uploads are supported.
 
 ## Configuration
 

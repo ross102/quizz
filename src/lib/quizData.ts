@@ -53,8 +53,6 @@ export async function createQuiz(title: string, importedQuiz: ImportedQuiz, owne
     createdBy: ownerId,
   })
   batch.set(doc(firestore, 'settings', 'current'), {
-    activeQuizId: quizRef.id,
-    activeQuizTitle: title,
     activeBy: ownerId,
     timerEndsAt: null,
     timerDurationSeconds: null,

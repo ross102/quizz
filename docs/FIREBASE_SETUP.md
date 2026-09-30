@@ -21,13 +21,17 @@ npm run dev
 
 ## Quiz spreadsheet
 
-Download `quiz-template.xlsx` from the Create quiz tab. Add one question per row with these columns: `#`, `Question`, `Choice 1` through `Choice 5`, `Points: Choice 1` through `Points: Choice 4`, `Max score`, `animal type`, `Minimum`, `Maximum`, `Description`, and `Recommendation`. The question and Choices 1 through 4 are required; Choice 5, points, and profile metadata are optional. A quiz can contain up to 30 questions. The numbered column is informational. Uploading a valid spreadsheet saves the quiz and makes it active immediately. `.xlsx` and `.csv` uploads are supported.
+Download `quiz-template.xlsx` from the Create quiz tab. Add one question per row with these columns: `#`, `Question`, `Choice 1` through `Choice 5`, `Points: Choice 1` through `Points: Choice 4`, `Max score`, `Animal type`, `Image links`, `Minimum`, `Maximum`, `Description`, and `Recommendation`. The question and Choices 1 through 4 are required; Choice 5, points, and profile metadata are optional. `Image links` accepts an HTTP(S) URL and is shown on the matched result. A quiz can contain up to 30 questions. The numbered column is informational. Uploading a valid spreadsheet saves the quiz and makes it active immediately. `.xlsx` and `.csv` uploads are supported.
 
 ## Configuration
 
 The Firebase client initializer is in `src/lib/firebase.ts`. It exports `firebaseConfigured`, `auth`, and `db`. Until all required Web app values are present, `auth` and `db` are `undefined`, allowing the frontend demo to remain usable.
 
 All visitors use anonymous sessions in the background; there is no sign-in form. Any visitor can upload a quiz, and that upload atomically becomes the active quiz. The second admin tab lists all uploaded quizzes by name and lets any visitor switch the active quiz. Quiz documents retain their creator UID for ownership, while answer keys are never readable by clients.
+
+The third admin tab can start or clear a shared quiz countdown in minutes or hours. Its end time is stored in `settings/current` and streamed to participant pages. The countdown is informational only: reaching zero does not block, skip, or submit quiz questions. With no timer set, the participant page shows no countdown.
+
+When a participant finishes, the app writes one `quizCompletions` document per anonymous participant and quiz. The audience view listens to those records and shows animal/profile counts only after at least one completed result has a matching profile. Deploy the current `firestore.rules` so participants can create their own completion records and the audience can read them.
 
 Because quiz creation and active-quiz selection are open to every visitor by design, a visitor can replace the active quiz. If the app later needs a trusted host-only workflow, it will need a separate authorization mechanism or a backend moderation/hosting role.
 

@@ -1,4 +1,7 @@
 import { Link } from 'react-router-dom'
+import { QRCodeSVG } from 'qrcode.react'
+
+const evaluationUrl = 'https://eval.fsdhmb.com'
 
 function LandingPage() {
   return (
@@ -22,6 +25,41 @@ function LandingPage() {
           </div>
         </div>
 
+        <div className="landing-qr">
+          <a
+            className="landing-qr__link"
+            href={evaluationUrl}
+            target="_blank"
+            rel="noreferrer"
+            aria-label="Open evaluation website"
+          >
+            <QRCodeSVG
+              value={evaluationUrl}
+              size={224}
+              level="H"
+              marginSize={2}
+              bgColor="#ffffff"
+              fgColor="#172b4d"
+              title="QR code for eval.fsdhmb.com"
+            />
+          </a>
+          <p className="landing-qr__label">Scan to open</p>
+          <a className="landing-qr__url" href={evaluationUrl} target="_blank" rel="noreferrer">
+            eval.fsdhmb.com
+          </a>
+        </div>
+      </section>
+
+      <section className="landing-live" aria-labelledby="landing-live-title">
+        <div className="landing-live__copy">
+          <span className="landing-badge">Made for live sessions</span>
+          <h2 id="landing-live-title">Every answer becomes part of the conversation.</h2>
+          <p>
+            Bring participants into one shared experience. Responses appear as they come in, so
+            hosts can see the room’s thinking and keep the discussion moving.
+          </p>
+        </div>
+
         <div className="landing-visual" aria-hidden="true">
           <div className="floating-card floating-card--top">
             <svg viewBox="0 0 64 64" role="img">
@@ -32,7 +70,7 @@ function LandingPage() {
             </svg>
             <div>
               <strong>Live results</strong>
-              <span>12 responses</span>
+                <span>Responses arrive live</span>
             </div>
           </div>
 

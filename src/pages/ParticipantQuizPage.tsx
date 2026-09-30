@@ -1,7 +1,13 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { firebaseConfigured } from '../lib/firebase'
-import { ensureParticipantSession, submitQuizAnswer, subscribeToActiveQuiz } from '../lib/quizData'
+import {
+  ensureParticipantSession,
+  saveQuizCompletion,
+  submitQuizAnswer,
+  subscribeToActiveQuiz,
+} from '../lib/quizData'
+import { calculateQuizScore } from '../lib/quizScoring'
 import type { Quiz, QuizQuestion } from '../lib/quizTypes'
 
 const demoQuestions: QuizQuestion[] = [
@@ -89,6 +95,8 @@ function ParticipantQuizPage() {
     savedProgress.selectedAnswers,
   )
   const [activeQuiz, setActiveQuiz] = useState<Quiz | null>(null)
+  const [timerEndsAt, setTimerEndsAt] = useState<number | null>(null)
+  const [clockNow, setClockNow] = useState(0)
   const [participantId, setParticipantId] = useState('')
   const [isLoading, setIsLoading] = useState(firebaseConfigured)
   const [isProgressReady, setIsProgressReady] = useState(!firebaseConfigured)
@@ -109,8 +117,10 @@ function ParticipantQuizPage() {
       .then((uid) => {
         if (!isMounted) return
         setParticipantId(uid)
-        unsubscribe = subscribeToActiveQuiz((quiz) => {
+        unsubscribe = subscribeToActiveQuiz((quiz, endsAt) => {
           setActiveQuiz(quiz)
+          setTimerEndsAt(endsAt)
+          if (endsAt !== null) setClockNow(Date.now())
 
           if (quiz?.id !== savedProgress.quizId) {
             setCurrentPage(0)
@@ -131,6 +141,13 @@ function ParticipantQuizPage() {
     }
   }, [])
 
+  useEffect(() => {
+    if (timerEndsAt === null) return
+
+    const intervalId = window.setInterval(() => setClockNow(Date.now()), 1000)
+    return () => window.clearInterval(intervalId)
+  }, [timerEndsAt])
+
   const questions = activeQuiz?.questions ?? (firebaseConfigured ? [] : demoQuestions)
   const totalPages = Math.ceil(questions.length / pageSize)
 
@@ -143,6 +160,15 @@ function ParticipantQuizPage() {
   const currentQuestion = questions[currentPage]
 
   const answeredCount = Object.keys(selectedAnswers).length
+  const remainingSeconds = timerEndsAt === null
+    ? 0
+    : Math.max(0, Math.ceil((timerEndsAt - clockNow) / 1000))
+  const timerHours = Math.floor(remainingSeconds / 3600)
+  const timerMinutes = Math.floor((remainingSeconds % 3600) / 60)
+  const timerSeconds = remainingSeconds % 60
+  const timerDisplay = timerHours > 0
+    ? `${String(timerHours).padStart(2, '0')}:${String(timerMinutes).padStart(2, '0')}:${String(timerSeconds).padStart(2, '0')}`
+    : `${String(timerMinutes).padStart(2, '0')}:${String(timerSeconds).padStart(2, '0')}`
 
   const handleSelectOption = (questionId: number, optionIndex: number) => {
     const nextAnswers = {
@@ -178,6 +204,22 @@ function ParticipantQuizPage() {
     }
 
     if (currentPage === totalPages - 1) {
+      if (activeQuiz && participantId) {
+        const score = calculateQuizScore(questions, selectedAnswers)
+
+        try {
+          await saveQuizCompletion(
+            activeQuiz.id,
+            participantId,
+            score.profile?.animalType ?? null,
+            score.percentage,
+          )
+        } catch (error) {
+          setErrorMessage(error instanceof Error ? error.message : 'Could not record quiz completion.')
+          return
+        }
+      }
+
       const resultSnapshot = {
         answers: selectedAnswers,
         totalQuestions: questions.length,
@@ -234,6 +276,12 @@ function ParticipantQuizPage() {
           <div className="participant-progress">
             <span>{answeredCount} answered</span>
           </div>
+          {timerEndsAt !== null ? (
+            <div className="participant-timer" aria-label={`Time remaining ${timerDisplay}`}>
+              <span>Time remaining</span>
+              <strong>{timerDisplay}</strong>
+            </div>
+          ) : null}
         </header>
 
         {errorMessage ? <div className="form-alert form-alert--error" role="alert">{errorMessage}</div> : null}

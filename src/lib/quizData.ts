@@ -11,7 +11,7 @@ import {
 } from 'firebase/firestore'
 import { signInAnonymously } from 'firebase/auth'
 import { auth, db } from './firebase'
-import type { ImportedQuiz, Quiz, QuizResponse } from './quizTypes'
+import type { ImportedQuiz, Quiz, QuizCompletion, QuizResponse } from './quizTypes'
 
 function requireFirestore() {
   if (!db) {
@@ -56,6 +56,8 @@ export async function createQuiz(title: string, importedQuiz: ImportedQuiz, owne
     activeQuizId: quizRef.id,
     activeQuizTitle: title,
     activeBy: ownerId,
+    timerEndsAt: null,
+    timerDurationSeconds: null,
     updatedAt: serverTimestamp(),
   })
   await batch.commit()
@@ -69,8 +71,22 @@ export async function activateQuiz(quizId: string, title: string, ownerId: strin
     activeQuizId: quizId,
     activeQuizTitle: title,
     activeBy: ownerId,
+    timerEndsAt: null,
+    timerDurationSeconds: null,
     updatedAt: serverTimestamp(),
   })
+}
+
+export async function setActiveQuizTimer(durationSeconds: number | null, ownerId: string) {
+  const firestore = requireFirestore()
+  const timerEndsAt = durationSeconds === null ? null : Date.now() + durationSeconds * 1000
+
+  await setDoc(doc(firestore, 'settings', 'current'), {
+    activeBy: ownerId,
+    timerEndsAt,
+    timerDurationSeconds: durationSeconds,
+    updatedAt: serverTimestamp(),
+  }, { merge: true })
 }
 
 export function subscribeToQuizzes(onQuizzes: (quizzes: Quiz[]) => void, onError: (error: Error) => void) {
@@ -92,25 +108,36 @@ export function subscribeToQuizzes(onQuizzes: (quizzes: Quiz[]) => void, onError
   )
 }
 
-export function subscribeToActiveQuiz(onQuiz: (quiz: Quiz | null) => void, onError: (error: Error) => void) {
+export function subscribeToActiveQuiz(
+  onQuiz: (quiz: Quiz | null, timerEndsAt: number | null, timerDurationSeconds: number | null) => void,
+  onError: (error: Error) => void,
+) {
   const firestore = requireFirestore()
   let activeQuizId = ''
+  let activeQuiz: Quiz | null = null
   let quizUnsubscribe: Unsubscribe | undefined
 
   const settingsUnsubscribe = onSnapshot(
     doc(firestore, 'settings', 'current'),
     (settingsSnapshot) => {
+      const settings = settingsSnapshot.data()
+      const timerEndsAt = typeof settings?.timerEndsAt === 'number' ? settings.timerEndsAt : null
+      const timerDurationSeconds = typeof settings?.timerDurationSeconds === 'number'
+        ? settings.timerDurationSeconds
+        : null
       const nextQuizId = String(settingsSnapshot.data()?.activeQuizId ?? '')
 
       if (nextQuizId === activeQuizId) {
+        onQuiz(activeQuiz, timerEndsAt, timerDurationSeconds)
         return
       }
 
       activeQuizId = nextQuizId
+      activeQuiz = null
       quizUnsubscribe?.()
 
       if (!activeQuizId) {
-        onQuiz(null)
+        onQuiz(null, timerEndsAt, timerDurationSeconds)
         return
       }
 
@@ -118,16 +145,18 @@ export function subscribeToActiveQuiz(onQuiz: (quiz: Quiz | null) => void, onErr
         doc(firestore, 'quizzes', activeQuizId),
         (quizSnapshot) => {
           if (!quizSnapshot.exists()) {
-            onQuiz(null)
+            activeQuiz = null
+            onQuiz(null, timerEndsAt, timerDurationSeconds)
             return
           }
 
           const data = quizSnapshot.data()
-          onQuiz({
+          activeQuiz = {
             id: quizSnapshot.id,
             title: String(data.title ?? 'Quiz'),
             questions: data.questions ?? [],
-          })
+          }
+          onQuiz(activeQuiz, timerEndsAt, timerDurationSeconds)
         },
         onError,
       )
@@ -166,6 +195,24 @@ export async function submitQuizAnswer(
   })
 }
 
+export async function saveQuizCompletion(
+  quizId: string,
+  participantId: string,
+  profileName: string | null,
+  scorePercent: number | null,
+) {
+  const firestore = requireFirestore()
+  const completionId = `${quizId}_${participantId}`
+
+  await setDoc(doc(firestore, 'quizCompletions', completionId), {
+    quizId,
+    participantId,
+    profileName,
+    scorePercent,
+    completedAt: serverTimestamp(),
+  })
+}
+
 export function subscribeToQuizResponses(
   quizId: string,
   onResponses: (responses: QuizResponse[]) => void,
@@ -196,6 +243,35 @@ export function subscribeToQuizResponses(
           })
           .sort((left, right) => (left.submittedAt ?? 0) - (right.submittedAt ?? 0)),
       )
+    },
+    onError,
+  )
+}
+
+export function subscribeToQuizCompletions(
+  quizId: string,
+  onCompletions: (completions: QuizCompletion[]) => void,
+  onError: (error: Error) => void,
+) {
+  const firestore = requireFirestore()
+  const completionsQuery = query(collection(firestore, 'quizCompletions'), where('quizId', '==', quizId))
+
+  return onSnapshot(
+    completionsQuery,
+    (snapshot) => {
+      onCompletions(snapshot.docs.map((completionDoc) => {
+        const data = completionDoc.data()
+        const completedAt = data.completedAt?.toMillis?.()
+
+        return {
+          id: completionDoc.id,
+          quizId: String(data.quizId),
+          participantId: String(data.participantId),
+          profileName: typeof data.profileName === 'string' ? data.profileName : null,
+          scorePercent: typeof data.scorePercent === 'number' ? data.scorePercent : null,
+          completedAt,
+        }
+      }))
     },
     onError,
   )

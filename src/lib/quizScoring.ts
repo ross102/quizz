@@ -2,6 +2,7 @@ import type { QuizQuestion } from './quizTypes'
 
 export type QuizProfile = {
   animalType: string
+  imageUrl?: string
   minimum: number
   maximum: number
   description: string
@@ -50,6 +51,7 @@ export function calculateQuizScore(
 
     const profile = {
       animalType: question.animalType,
+      imageUrl: question.imageUrl,
       minimum: boundsAreFractions ? question.minimum * 100 : question.minimum,
       maximum: boundsAreFractions ? question.maximum * 100 : question.maximum,
       description: question.description,

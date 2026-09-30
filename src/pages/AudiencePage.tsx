@@ -1,7 +1,12 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { firebaseConfigured } from '../lib/firebase'
-import { ensureParticipantSession, subscribeToActiveQuiz, subscribeToQuizResponses } from '../lib/quizData'
-import type { QuizResponse } from '../lib/quizTypes'
+import {
+  ensureParticipantSession,
+  subscribeToActiveQuiz,
+  subscribeToQuizCompletions,
+  subscribeToQuizResponses,
+} from '../lib/quizData'
+import type { QuizCompletion, QuizResponse } from '../lib/quizTypes'
 
 type AudienceAnswer = {
   id: string
@@ -137,21 +142,26 @@ const websocketUrl = import.meta.env.VITE_AUDIENCE_WS_URL ?? 'ws://localhost:808
 const SHOW_USER_RESULTS = false
 
 function AudiencePage() {
+  const chatRef = useRef<HTMLDivElement>(null)
   const [liveAnswers, setLiveAnswers] = useState<AudienceAnswer[]>([])
   const [isUsingSocket, setIsUsingSocket] = useState(false)
   const [questionCount, setQuestionCount] = useState(mockedAudienceAnswers.length)
   const [connectionError, setConnectionError] = useState('')
+  const [completedProfiles, setCompletedProfiles] = useState<QuizCompletion[]>([])
 
   useEffect(() => {
     if (firebaseConfigured) {
       let unsubscribeQuiz: (() => void) | undefined
       let unsubscribeResponses: (() => void) | undefined
+      let unsubscribeCompletions: (() => void) | undefined
 
       ensureParticipantSession()
         .then(() => {
           unsubscribeQuiz = subscribeToActiveQuiz((quiz) => {
             unsubscribeResponses?.()
+            unsubscribeCompletions?.()
             setLiveAnswers([])
+            setCompletedProfiles([])
 
             if (!quiz) {
               setQuestionCount(0)
@@ -164,6 +174,9 @@ function AudiencePage() {
               setLiveAnswers(responses.map(toAudienceAnswer))
               setIsUsingSocket(true)
             }, (error) => setConnectionError(error.message))
+            unsubscribeCompletions = subscribeToQuizCompletions(quiz.id, setCompletedProfiles, (error) =>
+              setConnectionError(error.message),
+            )
           }, (error) => setConnectionError(error.message))
         })
         .catch((error: unknown) => {
@@ -173,6 +186,7 @@ function AudiencePage() {
       return () => {
         unsubscribeQuiz?.()
         unsubscribeResponses?.()
+        unsubscribeCompletions?.()
       }
     }
 
@@ -233,6 +247,13 @@ function AudiencePage() {
     }
   }, [isUsingSocket])
 
+  useLayoutEffect(() => {
+    const feed = chatRef.current
+    if (!feed || liveAnswers.length === 0) return
+
+    feed.scrollTop = feed.scrollHeight
+  }, [liveAnswers])
+
   const userResults = [
     { id: 1, score: 92, tone: 'blue' },
     { id: 2, score: 83, tone: 'violet' },
@@ -240,6 +261,14 @@ function AudiencePage() {
     { id: 4, score: 67, tone: 'amber' },
     { id: 5, score: 58, tone: 'rose' },
   ]
+
+  const profileCounts = completedProfiles.reduce<Record<string, number>>((counts, completion) => {
+    if (completion.profileName) {
+      counts[completion.profileName] = (counts[completion.profileName] ?? 0) + 1
+    }
+    return counts
+  }, {})
+  const hasCompletedProfiles = Object.keys(profileCounts).length > 0
 
   return (
     <main className="audience-page">
@@ -267,6 +296,23 @@ function AudiencePage() {
           </div>
         </div>
 
+        {hasCompletedProfiles ? (
+          <section className="audience-profile-counts" aria-label="Completed quiz results">
+            <h2>Completed results</h2>
+            <div className="audience-profile-counts__list" aria-live="polite">
+              {Object.entries(profileCounts)
+                .sort(([left], [right]) => left.localeCompare(right))
+                .map(([profileName, count], index) => (
+                  <div className="audience-profile-count" key={profileName}>
+                    <span>{count} {profileName}{count === 1 ? '' : 's'}</span>
+                    <strong>{count}</strong>
+                    <i style={{ animationDelay: `${index * 90}ms` }} />
+                  </div>
+                ))}
+            </div>
+          </section>
+        ) : null}
+
         {SHOW_USER_RESULTS && (
           <div className="audience-results" aria-label="Audience results">
             {userResults.map((result) => (
@@ -278,7 +324,7 @@ function AudiencePage() {
           </div>
         )}
 
-        <div className="audience-chat" aria-live="polite">
+        <div ref={chatRef} className="audience-chat" aria-live="polite">
           {liveAnswers.map((answer, index) => (
             <div
               key={answer.id}
@@ -286,8 +332,13 @@ function AudiencePage() {
               style={{ animationDelay: `${index * 120}ms` }}
             >
               <div className="audience-message__meta">
-                <span>Q{answer.questionId}</span>
-                <span className="audience-message__letter">{answer.optionLabel}</span>
+                <div className="audience-message__identity">
+                  <strong>Question {answer.questionId}</strong>
+                  <span>Anonymous participant</span>
+                </div>
+                <span className="audience-message__letter" aria-label={`Choice ${answer.optionLabel}`}>
+                  {answer.optionLabel}
+                </span>
                 {SHOW_USER_RESULTS && (
                   <span className="audience-message__score">{userResults[index % userResults.length].score}%</span>
                 )}

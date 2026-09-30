@@ -60,6 +60,25 @@ $shadow: 0 24px 64px rgba(79, 70, 229, 0.12);
   font-size: 0.8rem;
 }
 
+.participant-timer {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  border: 1px solid rgba(217, 119, 6, 0.24);
+  border-radius: 999px;
+  padding: 0.48rem 0.78rem;
+  background: #fff8e8;
+  color: #854d0e;
+  font-size: 0.78rem;
+  white-space: nowrap;
+
+  strong {
+    color: #713f12;
+    font-size: 0.95rem;
+    font-variant-numeric: tabular-nums;
+  }
+}
+
 .participant-progress-bar {
   position: relative;
   width: 100%;
@@ -197,7 +216,7 @@ $shadow: 0 24px 64px rgba(79, 70, 229, 0.12);
 }
 
 .result-shell {
-  width: min(100%, 620px);
+  width: min(100%, 780px);
   background: $panel;
   border: 1px solid $border;
   border-radius: 24px;
@@ -224,9 +243,25 @@ $shadow: 0 24px 64px rgba(79, 70, 229, 0.12);
   font-size: clamp(2rem, 3vw, 2.7rem);
 }
 
+.result-profile-image {
+  display: grid;
+  place-items: center;
+  margin: 0 auto 20px;
+
+  img {
+    display: block;
+    max-width: min(350px, 100%);
+    max-height: 350px;
+    width: auto;
+    height: auto;
+    object-fit: contain;
+    border-radius: 14px;
+  }
+}
+
 .result-score {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 14px;
   margin-bottom: 18px;
 
@@ -303,6 +338,10 @@ $shadow: 0 24px 64px rgba(79, 70, 229, 0.12);
 
   .participant-progress {
     white-space: normal;
+  }
+
+  .participant-timer {
+    align-self: flex-start;
   }
 
   .participant-pagination {

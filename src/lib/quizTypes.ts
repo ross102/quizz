@@ -5,6 +5,7 @@ export type QuizQuestion = {
   pointsByChoice?: number[]
   maxScore?: number
   animalType?: string
+  imageUrl?: string
   minimum?: number
   maximum?: number
   description?: string
@@ -26,6 +27,15 @@ export type QuizResponse = {
   selectedOption: string
   optionLabel: string
   submittedAt?: number
+}
+
+export type QuizCompletion = {
+  id: string
+  quizId: string
+  participantId: string
+  profileName: string | null
+  scorePercent: number | null
+  completedAt?: number
 }
 
 export type ImportedQuiz = {

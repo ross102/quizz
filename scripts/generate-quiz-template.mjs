@@ -13,7 +13,8 @@ const headers = [
   'Points: Choice 3',
   'Points: Choice 4',
   'Max score',
-  'animal type',
+  'Animal type',
+  'Image links',
   'Minimum',
   'Maximum',
   'Description',
@@ -25,7 +26,7 @@ const questions = workbook.addWorksheet('Questions')
 questions.addRow(headers)
 questions.columns = headers.map((header, index) => ({
   header,
-  width: [6, 44, 24, 24, 24, 24, 24, 18, 18, 18, 18, 14, 18, 14, 14, 36, 36][index],
+  width: [6, 44, 24, 24, 24, 24, 24, 18, 18, 18, 18, 14, 18, 36, 14, 14, 36, 36][index],
 }))
 questions.getRow(1).font = { bold: true, color: { argb: 'FFFFFFFF' } }
 questions.getRow(1).fill = {
@@ -41,7 +42,7 @@ instructions.addRows([
   ['Add one question per row on the Questions sheet.'],
   ['Fill Question and Choice 1 through Choice 4 for every question. Choice 5 is optional.'],
   ['Points: Choice 1 through Points: Choice 4 are numeric; a blank points cell counts as 0.'],
-  ['Max score, animal type, Minimum, Maximum, Description, and Recommendation are optional metadata.'],
+  ['Max score, Animal type, Image links, Minimum, Maximum, Description, and Recommendation are optional metadata.'],
   ['The # column is optional and is not used to identify questions.'],
 ])
 instructions.getColumn(1).width = 110

@@ -2,17 +2,29 @@ import { useEffect, useState } from 'react'
 import FileUploadField from '../components/FileUploadField'
 import QuizInput from '../components/QuizInput'
 import { firebaseConfigured } from '../lib/firebase'
-import { activateQuiz, createQuiz, ensureParticipantSession, subscribeToQuizzes } from '../lib/quizData'
+import {
+  activateQuiz,
+  createQuiz,
+  ensureParticipantSession,
+  setActiveQuizTimer,
+  subscribeToActiveQuiz,
+  subscribeToQuizzes,
+} from '../lib/quizData'
 import { parseQuizFile } from '../lib/quizImport'
 import type { Quiz } from '../lib/quizTypes'
 
 function AdminPage() {
-  const [activeTab, setActiveTab] = useState<'create' | 'publish'>('create')
+  const [activeTab, setActiveTab] = useState<'create' | 'publish' | 'timer'>('create')
   const [quizName, setQuizName] = useState('')
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [selectedQuizId, setSelectedQuizId] = useState('')
   const [quizzes, setQuizzes] = useState<Quiz[]>([])
   const [ownerId, setOwnerId] = useState('')
+  const [activeQuizId, setActiveQuizId] = useState('')
+  const [timerEndsAt, setTimerEndsAt] = useState<number | null>(null)
+  const [timerAmount, setTimerAmount] = useState('20')
+  const [timerUnit, setTimerUnit] = useState<'minutes' | 'hours'>('minutes')
+  const [clockNow, setClockNow] = useState(0)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [errorMessage, setErrorMessage] = useState('')
   const [successMessage, setSuccessMessage] = useState('')
@@ -21,15 +33,21 @@ function AdminPage() {
     if (!firebaseConfigured) return
 
     let isMounted = true
-    let unsubscribe: (() => void) | undefined
+    let unsubscribeQuizzes: (() => void) | undefined
+    let unsubscribeActiveQuiz: (() => void) | undefined
 
     ensureParticipantSession()
       .then((uid) => {
         if (!isMounted) return
         setOwnerId(uid)
-        unsubscribe = subscribeToQuizzes((availableQuizzes) => {
+        unsubscribeQuizzes = subscribeToQuizzes((availableQuizzes) => {
           setQuizzes(availableQuizzes)
           setSelectedQuizId((current) => current || availableQuizzes[0]?.id || '')
+        }, (error) => setErrorMessage(error.message))
+        unsubscribeActiveQuiz = subscribeToActiveQuiz((quiz, endsAt) => {
+          setActiveQuizId(quiz?.id ?? '')
+          setTimerEndsAt(endsAt)
+          if (endsAt !== null) setClockNow(Date.now())
         }, (error) => setErrorMessage(error.message))
       })
       .catch((error: unknown) => {
@@ -38,9 +56,17 @@ function AdminPage() {
 
     return () => {
       isMounted = false
-      unsubscribe?.()
+      unsubscribeQuizzes?.()
+      unsubscribeActiveQuiz?.()
     }
   }, [])
+
+  useEffect(() => {
+    if (timerEndsAt === null) return
+
+    const intervalId = window.setInterval(() => setClockNow(Date.now()), 1000)
+    return () => window.clearInterval(intervalId)
+  }, [timerEndsAt])
 
   const handleCreateSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
@@ -124,6 +150,62 @@ function AdminPage() {
     }
   }
 
+  const handleTimerSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    const amount = Number(timerAmount)
+
+    if (!activeQuizId) {
+      setErrorMessage('Activate a quiz before starting its countdown.')
+      setSuccessMessage('')
+      return
+    }
+
+    if (!Number.isInteger(amount) || amount < 1) {
+      setErrorMessage('Enter a whole number greater than zero.')
+      setSuccessMessage('')
+      return
+    }
+
+    setIsSubmitting(true)
+    setErrorMessage('')
+    setSuccessMessage('')
+
+    try {
+      const secondsPerUnit = timerUnit === 'hours' ? 3600 : 60
+      await setActiveQuizTimer(amount * secondsPerUnit, ownerId)
+      setSuccessMessage(`A ${amount} ${timerUnit} countdown is running for the active quiz.`)
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : 'Could not start the quiz countdown.')
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  const handleClearTimer = async () => {
+    setIsSubmitting(true)
+    setErrorMessage('')
+    setSuccessMessage('')
+
+    try {
+      await setActiveQuizTimer(null, ownerId)
+      setSuccessMessage('The quiz countdown has been cleared.')
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : 'Could not clear the quiz countdown.')
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  const remainingSeconds = timerEndsAt === null
+    ? 0
+    : Math.max(0, Math.ceil((timerEndsAt - clockNow) / 1000))
+  const timerHours = Math.floor(remainingSeconds / 3600)
+  const timerMinutes = Math.floor((remainingSeconds % 3600) / 60)
+  const timerSeconds = remainingSeconds % 60
+  const timerDisplay = timerHours > 0
+    ? `${String(timerHours).padStart(2, '0')}:${String(timerMinutes).padStart(2, '0')}:${String(timerSeconds).padStart(2, '0')}`
+    : `${String(timerMinutes).padStart(2, '0')}:${String(timerSeconds).padStart(2, '0')}`
+
   if (!firebaseConfigured) {
     return (
       <main className="admin-page">
@@ -166,6 +248,15 @@ function AdminPage() {
             onClick={() => setActiveTab('publish')}
           >
             Select active quiz
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={activeTab === 'timer'}
+            className={activeTab === 'timer' ? 'admin-tab admin-tab--active' : 'admin-tab'}
+            onClick={() => setActiveTab('timer')}
+          >
+            Quiz timer
           </button>
         </div>
 
@@ -212,7 +303,7 @@ function AdminPage() {
               {isSubmitting ? 'Saving…' : 'Save quiz'}
             </button>
           </form>
-        ) : (
+        ) : activeTab === 'publish' ? (
             <form className="admin-form" onSubmit={handlePublishSubmit}>
             <label className="quiz-input">
               <span className="quiz-input__label">Select quiz</span>
@@ -231,6 +322,54 @@ function AdminPage() {
             <button type="submit" className="admin-form__submit" disabled={isSubmitting || quizzes.length === 0}>
               {isSubmitting ? 'Activating…' : 'Make active quiz'}
             </button>
+          </form>
+        ) : (
+          <form className="admin-form" onSubmit={handleTimerSubmit}>
+            <p className="admin-timer__context">
+              Active quiz: <strong>{quizzes.find((quiz) => quiz.id === activeQuizId)?.title ?? 'None selected'}</strong>
+            </p>
+
+            <div className="admin-timer__fields">
+              <label className="quiz-input">
+                <span className="quiz-input__label">Duration</span>
+                <input
+                  aria-label="Timer duration"
+                  type="number"
+                  min="1"
+                  step="1"
+                  value={timerAmount}
+                  onChange={(event) => setTimerAmount(event.target.value)}
+                  required
+                />
+              </label>
+              <label className="quiz-input">
+                <span className="quiz-input__label">Unit</span>
+                <select
+                  value={timerUnit}
+                  onChange={(event) => setTimerUnit(event.target.value as 'minutes' | 'hours')}
+                >
+                  <option value="minutes">Minutes</option>
+                  <option value="hours">Hours</option>
+                </select>
+              </label>
+            </div>
+
+            {timerEndsAt !== null ? (
+              <div className="admin-timer__status" role="status">
+                <span>{remainingSeconds > 0 ? 'Time remaining' : 'Countdown ended'}</span>
+                <strong>{timerDisplay}</strong>
+              </div>
+            ) : null}
+
+            <button type="submit" className="admin-form__submit" disabled={isSubmitting || !activeQuizId}>
+              {isSubmitting ? 'Starting…' : 'Start countdown'}
+            </button>
+
+            {timerEndsAt !== null ? (
+              <button type="button" className="admin-timer__clear" onClick={handleClearTimer} disabled={isSubmitting}>
+                Clear timer
+              </button>
+            ) : null}
           </form>
         )}
       </section>

@@ -8,6 +8,17 @@ function findColumn(headers: string[], patterns: RegExp[]) {
   return headers.findIndex((header) => patterns.some((pattern) => pattern.test(header)))
 }
 
+function getImageUrl(value: unknown) {
+  if (value && typeof value === 'object' && 'hyperlink' in value) {
+    const hyperlink = (value as { hyperlink?: unknown }).hyperlink
+    if (typeof hyperlink === 'string') return hyperlink.trim()
+  }
+
+  const rawValue = String(value ?? '').trim()
+  const markdownLink = rawValue.match(/^\[[^\]]*\]\((https?:\/\/[^\s)]+)\)$/i)
+  return markdownLink?.[1] ?? rawValue
+}
+
 export async function parseQuizFile(file: File): Promise<ImportedQuiz> {
   let rows: unknown[][]
 
@@ -55,6 +66,7 @@ export async function parseQuizFile(file: File): Promise<ImportedQuiz> {
   const answerColumn = findColumn(firstRow, [/^(answer|correctanswer|correctoption|correct)$/])
   const maxScoreColumn = findColumn(firstRow, [/^maxscore$/])
   const animalTypeColumn = findColumn(firstRow, [/^animaltype$/])
+  const imageLinksColumn = findColumn(firstRow, [/^(imagelinks?|imageurl|animalimage)$/])
   const minimumColumn = findColumn(firstRow, [/^minimum$/])
   const maximumColumn = findColumn(firstRow, [/^maximum$/])
   const descriptionColumn = findColumn(firstRow, [/^(desc|description)$/])
@@ -119,10 +131,22 @@ export async function parseQuizFile(file: File): Promise<ImportedQuiz> {
     }
 
     const animalType = String(rowValue(animalTypeColumn) ?? '').trim()
+    const imageUrl = getImageUrl(rowValue(imageLinksColumn))
     const description = String(rowValue(descriptionColumn) ?? '').trim()
     const recommendation = String(rowValue(recommendationColumn) ?? '').trim()
 
     if (animalType) question.animalType = animalType
+    if (imageUrl) {
+      try {
+        const parsedImageUrl = new URL(imageUrl)
+        if (parsedImageUrl.protocol !== 'https:' && parsedImageUrl.protocol !== 'http:') {
+          throw new Error('Unsupported image URL protocol.')
+        }
+        question.imageUrl = parsedImageUrl.toString()
+      } catch {
+        throw new Error(`Question ${questionId} has an invalid Image links URL.`)
+      }
+    }
     if (minimumRaw) {
       const minimum = Number(minimumRaw)
       if (!Number.isFinite(minimum)) throw new Error(`Question ${questionId} has an invalid Minimum value.`)

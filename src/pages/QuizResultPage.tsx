@@ -46,6 +46,18 @@ function QuizResultPage() {
           {state.quizTitle ? <p>{state.quizTitle}</p> : null}
         </div>
 
+        {profile?.imageUrl ? (
+          <div className="result-profile-image">
+            <img
+              src={profile.imageUrl}
+              alt={`${profile.animalType} result`}
+              onError={(event) => {
+                event.currentTarget.hidden = true
+              }}
+            />
+          </div>
+        ) : null}
+
         <div className="result-score">
           <div>
             <span className="result-score__label">Your score</span>

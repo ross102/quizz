@@ -22,8 +22,12 @@ service cloud.firestore {
       allow write: if signedIn()
         && settingId == 'current'
         && request.resource.data.activeBy == request.auth.uid
-        && request.resource.data.keys().hasOnly(['activeQuizId', 'activeQuizTitle', 'activeBy', 'updatedAt'])
-        && existsAfter(/databases/$(database)/documents/quizzes/$(request.resource.data.activeQuizId));
+        && request.resource.data.keys().hasOnly([
+          'activeQuizId', 'activeQuizTitle', 'activeBy', 'updatedAt',
+          'timerEndsAt', 'timerDurationSeconds'
+        ])
+        && (!('activeQuizId' in request.resource.data)
+          || existsAfter(/databases/$(database)/documents/quizzes/$(request.resource.data.activeQuizId)));
     }
 
     match /quizResponses/{responseId} {
@@ -33,6 +37,16 @@ service cloud.firestore {
         && request.resource.data.keys().hasOnly([
           'quizId', 'participantId', 'questionId', 'questionText',
           'selectedOption', 'optionLabel', 'submittedAt'
+        ]);
+      allow delete: if false;
+    }
+
+    match /quizCompletions/{completionId} {
+      allow read: if signedIn();
+      allow create, update: if signedIn()
+        && request.resource.data.participantId == request.auth.uid
+        && request.resource.data.keys().hasOnly([
+          'quizId', 'participantId', 'profileName', 'scorePercent', 'completedAt'
         ]);
       allow delete: if false;
     }
